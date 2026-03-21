@@ -34,3 +34,50 @@ class BrandRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BrandSerilaizer
     queryset = Brand.objects.all()
     lookup_field = "id"
+
+
+class CategoryView(APIView):
+    def post(self, request):
+        serializer = CategorySerilaizer(data = request.data)
+        if serializer.is_valid():
+            serializer.save()
+        return Response(
+            {"status": "1", "message": "success", "data": serializer.data},
+            status=status.HTTP_201_CREATED
+        )
+        
+    def get(self, request):
+        category = Category.objects.all()
+        serializer = CategorySerilaizer(category, many=True)
+        return Response(
+            {"status": "1", "message": "success", "data": serializer.data},
+            status=status.HTTP_201_CREATED
+        )
+
+
+class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = CategorySerilaizer
+    queryset = Category.objects.all()
+    lookup_field = "id"
+
+# Vehicle Brand Views
+class VehicleBrandListCreateView(generics.ListCreateAPIView):
+    queryset = VehicleBrand.objects.all()
+    serializer_class = VehicleBrandSerializer
+
+
+class VehicleBrandDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = VehicleBrand.objects.all()
+    serializer_class = VehicleBrandSerializer
+
+
+# Vehicle Model Views
+class VehicleModelListCreateView(generics.ListCreateAPIView):
+    queryset = VehicleModel.objects.all()
+    serializer_class = VehicleModelSerializer
+
+
+class VehicleModelDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = VehicleModel.objects.all()
+    serializer_class = VehicleModelSerializer
