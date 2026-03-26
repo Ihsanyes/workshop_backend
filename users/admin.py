@@ -1,8 +1,10 @@
 from django.contrib import admin
+from django.apps import apps
 
-from users.models import User
 
 # Register your models here.
 
 
-admin.site.register(User)
+apps_model = apps.get_app_config('users').get_models()
+for model in apps_model:
+    admin.site.register(model)

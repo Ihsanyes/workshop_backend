@@ -5,8 +5,29 @@ from django.utils import timezone
 from .services.number_sequence import generate_employee_id
 
 
+class Workshop(models.Model):
+    name = models.CharField(max_length=255)
+    owner = models.ForeignKey(
+        "User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="owned_workshops"
+    )
+    phone = models.CharField(max_length=15)
+    email = models.EmailField()
+    address = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
 class UserManager(BaseUserManager):
-    def create_user(self, employee_id=None, pin=None, role='staff', **extra_fields):
+    def create_user(self, workshop, employee_id=None, pin=None, role='staff', **extra_fields):
+
+        if not workshop:
+            raise ValueError("Workshop is required")
 
         if not pin:
             raise ValueError("PIN is required")
@@ -15,19 +36,22 @@ class UserManager(BaseUserManager):
             raise ValueError("PIN must be exactly 6 digits")
 
         if not employee_id:
-            employee_id = generate_employee_id()
+            employee_id = generate_employee_id(workshop=workshop)
 
-        employee_id = employee_id.upper()
+        user = self.model(
+            employee_id=employee_id.upper(),
+            role=role,
+            workshop=workshop,
+            **extra_fields
+        )
 
-        user = self.model(employee_id=employee_id, role=role, **extra_fields)
         user.set_password(pin)
         user.save(using=self._db)
         return user
     
     def create_superuser(self, employee_id, password=None, **extra_fields):
-        pin = password # password is used as PIN
 
-        if not pin:
+        if not password:
             raise ValueError("Superuser must have a PIN")
 
         extra_fields.setdefault('is_staff', True)
@@ -38,17 +62,33 @@ class UserManager(BaseUserManager):
         
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True')
-        
-        return self.create_user(employee_id=employee_id, pin=pin, role='admin', **extra_fields)
+
+        user = self.model(
+            employee_id=employee_id.upper(),
+            role='admin',
+            workshop=None,  # 👈 IMPORTANT
+            **extra_fields
+        )
+
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    workshop = models.ForeignKey(
+        Workshop,
+        on_delete=models.CASCADE,
+        null=True,
+        db_index=True,
+        related_name="users"
+    )
+
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('staff', 'Staff'),
     ]
-
-    employee_id = models.CharField(max_length=20, unique=True)
+    employee_id = models.CharField(max_length=30, unique=True, db_index=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='staff')
 
     first_name = models.CharField(max_length=30)
@@ -70,6 +110,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone']
 
+    class Meta:
+        ordering = ['-id']
+        indexes = [
+            models.Index(fields=['workshop']),
+            models.Index(fields=['employee_id']),
+        ]
+
     def save(self, *args, **kwargs):
         # Ensure admin has staff access
         if self.role == 'admin':
@@ -77,14 +124,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.employee_id
+        return f"{self.id}-{self.employee_id}"
     
 
 class EmployeeIdSequence(models.Model):
+    workshop = models.OneToOneField(Workshop, on_delete=models.CASCADE, db_index=True)
     last_number = models.IntegerField(default=0)
 
     def __str__(self):
-        return str(self.last_number)
+        return f"{self.workshop.name} - {self.last_number}"
     
 class ModulePermission(models.Model):
     MODULE_CHOICES = [

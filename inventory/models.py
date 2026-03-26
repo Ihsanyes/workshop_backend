@@ -3,42 +3,56 @@ from django.db import models
 # Create your models here.
 
 class Brand(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['name', 'workshop']
 
     def __str__(self):
         return self.name
     
     
 class Category(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ['name', 'workshop']
+
     def __str__(self):
         return self.name
     
 class VehicleBrand(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
+    name = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ['name', 'workshop']
 
     def __str__(self):
         return self.name
 
 
 class VehicleModel(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
     brand = models.ForeignKey(VehicleBrand, on_delete=models.CASCADE)
     model_name = models.CharField(max_length=255)
 
     class Meta:
-        unique_together = ['brand', 'model_name']
+        unique_together = ['brand', 'model_name', 'workshop']
 
     def __str__(self):
         return f"{self.brand.name} {self.model_name}"
 
 class Product(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
     name = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
     description = models.TextField(blank=True, null=True)
@@ -47,29 +61,51 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        unique_together = ['name', 'category']
+        unique_together = ['name', 'category', 'workshop']
+        indexes = [
+            models.Index(fields=['workshop']),
+        ]
 
     def __str__(self):
         return self.name
 
 class ProductVariant(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT)
     variant_name = models.CharField(max_length=255, blank=True, null=True)
-    sku = models.CharField(max_length=100, unique=True, db_index=True)
+    sku = models.CharField(max_length=100)
     barcode = models.CharField(max_length=100, blank=True, null=True)
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.PositiveIntegerField(default=0)
     compatible_vehicles = models.ManyToManyField(VehicleModel, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['product', 'brand', 'variant_name']
+        unique_together = ['sku', 'workshop']
+        indexes = [
+            models.Index(fields=['workshop']),
+            models.Index(fields=['sku']),
+    ]
 
     def __str__(self):
         return f"{self.product.name} - {self.brand.name} - {self.variant_name or 'Standard'}"
+    
+class Stock(models.Model):
+    workshop = models.ForeignKey('users.Workshop', on_delete=models.CASCADE, db_index=True)
+    product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE)
+    quantity = models.IntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['product_variant', 'workshop']
+
+    def __str__(self):
+        return f"{self.product_variant.product.name} - {self.product_variant.brand.name} - {self.quantity}"
+    
+
 
 # class Attribute(models.Model):
 #     name = models.CharField(max_length=100, unique=True)
