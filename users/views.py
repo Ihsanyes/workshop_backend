@@ -1,3 +1,5 @@
+from urllib import request
+
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -121,7 +123,48 @@ class CreateListEmployeeView(APIView):
         }, status=200)
     
 
+class EmployeeDetailView(APIView):
 
+    def get(self, request, pk):
+        try:
+            employee = User.objects.get(pk=pk)
+            serializer = EmployeeSerializer(employee)
+
+            return Response({
+                "status": "1",
+                "employee": serializer.data
+            }, status=200)
+
+        except User.DoesNotExist:
+            return Response({
+                "status": "0",
+                "message": "Employee not found"
+            }, status=404)
+    
+    def patch(self, request, pk):
+        try:
+            employee = User.objects.get(pk=pk)
+            serializer = UpdateEmployeeSerializer(employee, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                user = serializer.save()
+
+                return Response({
+                    "status": "1",
+                    "message": "Employee updated successfully",
+                    "employee": EmployeeSerializer(user).data
+                }, status=200)
+
+            return Response({
+                "status": "0",
+                "errors": serializer.errors
+            }, status=400)
+
+        except User.DoesNotExist:
+            return Response({
+                "status": "0",
+                "message": "Employee not found"
+            }, status=404)
 
 class PreviewEmployeeIdView(APIView):
 
@@ -156,3 +199,98 @@ class AssignPermissionView(generics.CreateAPIView):
             "message": "Permissions assigned successfully",
             "user_id": user.id
         }, status=201)
+    
+class UserProfileView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = EmployeeSerializer(request.user)
+
+        return Response({
+            "status": "1",
+            "profile": serializer.data
+        }, status=200)
+    
+    def patch(self, request):
+        serializer = UpdateEmployeeSerializer(request.user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response({
+                "status": "1",
+                "message": "Profile updated successfully",
+                "profile": EmployeeSerializer(user).data
+            }, status=200)
+
+        return Response({
+            "status": "0",
+            "errors": serializer.errors
+        }, status=400)
+
+
+
+class PinResetView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = PinResetSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "PIN updated successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class WorkshopView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if not user.workshop:
+            return Response({
+                "status": "0",
+                "message": "No workshop assigned"
+            }, status=404)
+
+        workshop = Workshop.objects.select_related('owner').get(id=user.workshop.id)
+        serializer = WorkshopSerializer(workshop)
+
+        return Response({
+            "status": "1",
+            "workshop": serializer.data
+        }, status=200)
+    
+    def patch(self, request):
+        user = request.user
+
+        if not user.workshop:
+            return Response({
+                "status": "0",
+                "message": "No workshop assigned"
+            }, status=404)
+
+        workshop = user.workshop
+        serializer = WorkshopSerializer(workshop, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "status": "1",
+                "message": "Workshop updated successfully",
+                "workshop": serializer.data
+            }, status=200)
+
+        return Response({
+            "status": "0",
+            "errors": serializer.errors
+        }, status=400)
+    

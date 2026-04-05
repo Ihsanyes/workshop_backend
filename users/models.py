@@ -14,7 +14,7 @@ class Workshop(models.Model):
         blank=True,
         related_name="owned_workshops"
     )
-    phone = models.CharField(max_length=15)
+    phone = models.CharField(max_length=15, unique=True)
     email = models.EmailField()
     address = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -125,6 +125,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.id}-{self.employee_id}"
+    
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"
     
 
 class EmployeeIdSequence(models.Model):

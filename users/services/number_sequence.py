@@ -11,4 +11,4 @@ def generate_employee_id(workshop):
         seq.last_number += 1
         seq.save()
 
-    return f"W{workshop.id}-EMP{str(seq.last_number).zfill(4)}"
+    return f"W{workshop.id}EMP{str(seq.last_number).zfill(4)}"

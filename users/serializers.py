@@ -19,6 +19,14 @@ class RegisterSerializer(serializers.Serializer):
         if not value.isdigit() or len(value) != 6:
             raise serializers.ValidationError("PIN must be 6 digits")
         return value
+    
+    def validate(self, validated_data):
+        if User.objects.filter(phone=validated_data['phone']).exists():
+            raise serializers.ValidationError("Phone number already exists")
+        return validated_data
+    
+
+
 
     def create(self, validated_data):
         with transaction.atomic():
@@ -136,3 +144,87 @@ class AssignPermissionSerializer(serializers.Serializer):
         ModulePermission.objects.bulk_create(permission_objects)
 
         return user
+    
+class UserProfileSerializer(serializers.ModelSerializer):
+    module_permissions = ModulePermissionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'employee_id', 'role', 'phone', 'email', 'module_permissions']
+
+class UpdateEmployeeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'phone', 'email']
+
+    def validate_phone(self, value):
+        user = self.instance
+
+        if not value.isdigit():
+            raise serializers.ValidationError("Phone must be numeric")
+
+        if User.objects.filter(phone=value).exclude(id=user.id).exists():
+            raise serializers.ValidationError("Phone already exists")
+
+        return value
+
+    def validate_email(self, value):
+        user = self.instance
+
+        if value and User.objects.filter(email=value).exclude(id=user.id).exists():
+            raise serializers.ValidationError("Email already exists")
+
+        return value
+
+
+class PinResetSerializer(serializers.Serializer):
+    old_pin = serializers.CharField(max_length=6, write_only=True)
+    new_pin = serializers.CharField(max_length=6, write_only=True)
+
+    def validate(self, data):
+        user = self.context['request'].user
+
+        old_pin = data.get("old_pin")
+        new_pin = data.get("new_pin")
+
+        # ✅ Validate old PIN
+        if not user.check_password(old_pin):
+            raise serializers.ValidationError({
+                "old_pin": "Old PIN is incorrect"
+            })
+
+        # ✅ Validate new PIN format
+        if not new_pin.isdigit() or len(new_pin) != 6:
+            raise serializers.ValidationError({
+                "new_pin": "PIN must be exactly 6 digits"
+            })
+
+        # ✅ Prevent same PIN
+        if old_pin == new_pin:
+            raise serializers.ValidationError({
+                "new_pin": "New PIN cannot be same as old PIN"
+            })
+
+        return data
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        new_pin = self.validated_data['new_pin']
+
+        user.set_password(new_pin)
+        user.failed_attempts = 0   # reset attempts
+        user.locked_until = None   # unlock if locked
+        user.save()
+
+        return user
+
+class WorkshopSerializer(serializers.ModelSerializer):
+    owner = serializers.SerializerMethodField(read_only=True)
+    class Meta:
+        model = Workshop
+        fields = ['id', 'name', 'owner', 'phone', 'email', 'address', 'created_at']
+
+    def get_owner(self, obj):
+        if obj.owner:
+            return obj.owner.get_full_name()
+        return None
