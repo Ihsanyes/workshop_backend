@@ -58,6 +58,11 @@ INSTALLED_APPS = [
 
     'users',
     'inventory',
+    'vehicles',
+    'employees',
+    'reports',
+    'finance',
+    'jobs',
     
     'rest_framework',
     'corsheaders',

@@ -141,8 +141,9 @@ class AssignPermissionSerializer(serializers.Serializer):
     modules = serializers.ListField(child=serializers.ChoiceField(choices=ModulePermission.MODULE_CHOICES))
 
     def validate_id(self, value):
-        if not User.objects.filter(id=value).exists():
-            raise serializers.ValidationError("User with this ID does not exist")
+        workshop = self.context.get('workshop')
+        if not User.objects.filter(id=value, workshop=workshop).exists():
+            raise serializers.ValidationError("User not found in your workshop")
         return value
     
     def validate_modules(self, value):
@@ -243,7 +244,12 @@ class WorkshopSerializer(serializers.ModelSerializer):
     owner = serializers.SerializerMethodField(read_only=True)
     class Meta:
         model = Workshop
-        fields = ['id', 'name', 'owner', 'phone', 'email', 'address', 'created_at']
+        fields = [
+            'id', 'name', 'owner', 'phone', 'email', 'address',
+            'serves_two_wheeler', 'serves_three_wheeler',      # ← missing
+            'serves_four_wheeler', 'serves_heavy_vehicle',     # ← missing
+            'created_at'
+        ]
 
     def get_owner(self, obj):
         if obj.owner:

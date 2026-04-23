@@ -19,6 +19,12 @@ class Workshop(models.Model):
     address = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # Vehicle type capabilities —
+    serves_two_wheeler   = models.BooleanField(default=False)
+    serves_three_wheeler = models.BooleanField(default=False)
+    serves_four_wheeler  = models.BooleanField(default=False)
+    serves_heavy_vehicle = models.BooleanField(default=False)
+
     def __str__(self):
         return self.name
 

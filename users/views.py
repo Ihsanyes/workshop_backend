@@ -19,6 +19,8 @@ from .models import *
 
 class RegisterView(APIView):
 
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
 
@@ -117,7 +119,7 @@ class CreateListEmployeeView(APIView):
         return Response(serializer.errors, status=400)
     
     def get(self, request):
-        employees = User.objects.all()
+        employees = User.objects.filter(workshop=request.user.workshop)
         serializer = EmployeeSerializer(employees, many=True)
 
         return Response({
@@ -130,7 +132,7 @@ class EmployeeDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            employee = User.objects.get(pk=pk)
+            employee = User.objects.get(pk=pk, workshop=request.user.workshop)
             serializer = EmployeeSerializer(employee)
 
             return Response({
@@ -146,7 +148,7 @@ class EmployeeDetailView(APIView):
     
     def patch(self, request, pk):
         try:
-            employee = User.objects.get(pk=pk)
+            employee = User.objects.get(pk=pk, workshop=request.user.workshop)
             serializer = UpdateEmployeeSerializer(employee, data=request.data, partial=True)
 
             if serializer.is_valid():
@@ -173,14 +175,15 @@ class PreviewEmployeeIdView(APIView):
 
     def get(self, request):
 
-        seq = EmployeeIdSequence.objects.first()
+        seq = EmployeeIdSequence.objects.filter(workshop=request.user.workshop).first()
 
         if seq:
             next_number = seq.last_number + 1
         else:
             next_number = 1
 
-        employee_id = f"EMP{str(next_number).zfill(4)}"
+        workshop = request.user.workshop
+        employee_id = f"W{workshop.id}EMP{str(next_number).zfill(4)}"
 
         return Response({
             "status": "1",
@@ -192,7 +195,10 @@ class AssignPermissionView(generics.CreateAPIView):
     permission_classes = [IsOwnerOrSuperUser]
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(
+            data=request.data,
+            context={'workshop': request.user.workshop}
+            )
         serializer.is_valid(raise_exception=True)
 
         user = serializer.save()
